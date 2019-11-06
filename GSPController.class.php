@@ -52,7 +52,7 @@ class GSPController {
 
 	public function msToTime($milliSecs) {
 		if ($milliSecs < 3600000) {
-			return preg_replace('/^0+/', '', gmdate("i:s", round($milliSecs/1000)));
+			return preg_replace('/^0/', '', gmdate("i:s", round($milliSecs/1000)));
 		}
 		return gmdate("G:i:s", round($milliSecs/1000));
 	}
