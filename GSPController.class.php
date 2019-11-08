@@ -157,7 +157,6 @@ class GSPController {
 		$sender = $eventObj->sender;
 		if (
 			!$this->chatBot->isReady()
-			|| !isset($this->chatBot->guildmembers[$sender])
 			|| !$this->settingManager->get('gsp_show_logon')
 			|| !$this->showRunning
 		) {
