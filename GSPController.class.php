@@ -29,6 +29,9 @@ class GSPController {
 	public $moduleName;
 
 	/** @Inject */
+	public $chatBot;
+
+	/** @Inject */
 	public $text;
 
 	/**
