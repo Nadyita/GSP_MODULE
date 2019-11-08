@@ -138,7 +138,13 @@ class GSPController {
 		if (!$data->live) {
 			return;
 		}
-		$msg = $this->getNotificationMessage();
+		$specialDelimiter = "<yellow>---------------------<end>";
+		$msg = sprintf(
+			"%s\n%s\n%s",
+			$specialDelimiter,
+			$this->getNotificationMessage(),
+			$specialDelimiter
+		);
 		if ($this->settingManager->get('gsp_channels') === "priv") {
 			$this->chatBot->sendPrivate($msg, true);
 		} elseif ($this->settingManager->get('gsp_channels') === "guild") {
@@ -216,6 +222,71 @@ class GSPController {
 	}
 
 	/**
+	 * Get an array of song descriptions
+	 *
+	 * @param StdClass[] $history The history (playlist) as an aray of songs
+	 * @return string[] Rendered song information about the playlist
+	 */
+	protected function getPlaylistInfos($history) {
+		$songs = array();
+		foreach ($history as $song) {
+			$time = DateTime::createFromFormat("Y-m-d*H:i:sT", $song->date)->setTimezone(new DateTimeZone("UTC"));
+			$info = sprintf(
+				"%s   <highlight>%s<end> - %s",
+				$time->format("H:i:s"),
+				$song->artist,
+				$song->title,
+			);
+			if (isset($song->duration) && $song->duration > 0) {
+				$info .= " [".$this->msToTime($song->duration)."]";
+			}
+			$songs[] = $info;
+		}
+		return $songs;
+	}
+
+	/**
+	 * Get information about the currently running GSP show
+	 *
+	 * @param StdClass $data The global GSP information
+	 * @return string A string with information about the currenly running GSP show
+	 */
+	protected function getShowInfos($data) {
+		if ($data->live !== 1 || !isset($data->name) || !strlen($data->name)) {
+			return "";
+		}
+		$showInfos = "Current show: <highlight>".$data->name."<end>\n";
+		if (isset($data->info) && strlen($data->info)) {
+			$showInfos .= "Location: <highlight>".$data->info."<end>\n";
+		}
+		$showInfos .= "\n";
+		return $showInfos;
+	}
+
+	/**
+	 * Get a line describing what GSP is currently playing
+	 *
+	 * @param StdClass $data The global GSP information
+	 * @param StdClass $song Information about the current song
+	 * @return string A line with the currently played title
+	 */
+	public function getCurrentlyPlaying($data, $song) {
+		$msg = sprintf(
+			"Currently playing on %s: <highlight>%s<end> - <highlight>%s<end>",
+			($data->live === 1 && $data->name) ? "<yellow>".$data->name."<end>" : "GSP",
+			$song->artist,
+			$song->title
+		);
+		if (isset($song->duration) && $song->duration > 0) {
+			$startTime = DateTime::createFromFormat("Y-m-d*H:i:sT", $song->date)->setTimezone(new DateTimeZone("UTC"));
+			$time = DateTime::createFromFormat("Y-m-d*H:i:sT", $data->date)->setTimezone(new DateTimeZone("UTC"));
+			$diff = $time->diff($startTime, true);
+			$msg .= " [".$diff->format("%i:%S")."/".$this->msToTime($song->duration)."]";
+		}
+		return $msg;
+	}
+
+	/**
 	 * Create a message with information about what's currently playing on GSP
 	 *
 	 * @param string $gspResponse The JSON-string with  stream information
@@ -232,35 +303,17 @@ class GSPController {
 		if (empty($data->history)) {
 			return "GSP is currently not playing any music.";
 		}
-		$songs = array();
 		$song = array_shift($data->history);
-		$msg = sprintf(
-			"Currently playing on GSP: <highlight>%s<end> - <highlight>%s<end>",
-			$song->artist,
-			$song->title
-		);
-		if (isset($song->duration) && $song->duration > 0) {
-			$startTime = DateTime::createFromFormat("Y-m-d*H:i:sT", $song->date)->setTimezone(new DateTimeZone("UTC"));
-			$time = DateTime::createFromFormat("Y-m-d*H:i:sT", $data->date)->setTimezone(new DateTimeZone("UTC"));
-			$diff = $time->diff($startTime, true);
-			$msg .= " [".$diff->format("%i:%S")."/".$this->msToTime($song->duration)."]";
-		}
-		foreach ($data->history as $song) {
-			$time = DateTime::createFromFormat("Y-m-d*H:i:sT", $song->date)->setTimezone(new DateTimeZone("UTC"));
-			$info = sprintf(
-				"%s   <highlight>%s<end> - %s [%s]",
-				$time->format("H:i:s"),
-				$song->artist,
-				$song->title,
-				$this->msToTime($song->duration)
-			);
-			$songs[] = $info;
-		}
-		$msg .= " - ".$this->text->makeBlob(
+		$currentlyPlaying = $this->getCurrentlyPlaying($data, $song);
+
+		$songs = $this->getPlaylistInfos($data->history);
+		$showInfos = $this->getShowInfos($data);
+		$lastSongsPage = $this->text->makeBlob(
 			"last songs",
-			join("\n", $songs),
+			$showInfos.join("\n", $songs),
 			"Last played songs (all times in UTC)",
-		).$this->renderTuneIn($data);
+		);
+		$msg = $currentlyPlaying." - ".$lastSongsPage.$this->renderTuneIn($data);
 		return $msg;
 	}
 }
