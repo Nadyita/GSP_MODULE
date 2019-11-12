@@ -2,7 +2,6 @@
 
 namespace Budabot\User\Modules;
 
-use Budabot\Core\xml;
 use DateTime;
 use DateTimeZone;
 
@@ -25,34 +24,50 @@ class GSPController {
 	/**
 	 * Name of the module.
 	 * Set automatically by module loader.
+	 * @var string $moduleName
 	 */
 	public $moduleName;
 
-	/** @Inject */
+	/**
+	 * @var \Budabot\Core\Budabot $chatBot
+	 * @Inject
+	 */
 	public $chatBot;
 
-	/** @Inject */
+	/**
+	 * @var \Budabot\Core\Text $text
+	 * @Inject
+	 */
 	public $text;
 
 	/**
-	 * @var Budabot\Core\AsyncHttp $http The global http client
+	 * @var \Budabot\Core\Http $http
 	 * @Inject
 	 */
 	public $http;
 
 	/**
-	 * @var Budabot\Core\SettingsManager $settingsManager The global setting manager
+	 * @var \Budabot\Core\SettingManager $settingManager
 	 * @Inject
 	 */
 	public $settingManager;
 
-	/** @var int 1 if a GSP show is currently running, otherwise 0 */
+	/**
+	 * 1 if a GSP show is currently running, otherwise 0
+	 * @var int $showRunning
+	 */
 	protected $showRunning = 0;
 
-	/** @var string The name of the currently running show or empty if none */
+	/**
+	 * The name of the currently running show or empty if none
+	 * @var string $showName
+	 */
 	protected $showName = "";
 
-	/** @var string Location of the currently running show or empty if none */
+	/**
+	 * Location of the currently running show or empty if none
+	 * @var string $showLocation
+	 */
 	protected $showLocation = "";
 
 	const GSP_URL = 'https://gsp.torontocast.stream/streaminfo/';
@@ -114,6 +129,34 @@ class GSPController {
 	}
 
 	/**
+	 * Test if all needed data for the current show is present and valid
+	 *
+	 * @param StdClass $show The response from the stream information of GSP
+	 * @return boolean true if we received good data from GSP, false otherwise
+	 */
+	protected function isAllShowInformationPresent($show) {
+		$allShowInformationPresent = $show !== false
+			&& isset($show->live)
+			&& is_integer($show->live)
+			&& isset($show->name)
+			&& isset($show->info);
+		return $allShowInformationPresent;
+	}
+
+	/**
+	 * Check if the GSP changed to live, changed name or location
+	 *
+	 * @param StdClass $show The response from the stream information of GSP
+	 * @return boolean true if something changed, false otherwise
+	 */
+	protected function hasShowInformationChanged($show) {
+		$informationChanged = $show->live !== $this->showRunning
+			|| $show->name !== $this->showName
+			|| $show->info !== $this->showLocation;
+		return $informationChanged;
+	}
+
+	/**
 	 * Announce if a new show has just started
 	 *
 	 * @param StdClass $gspResponse The response from the stream information of GSP
@@ -121,17 +164,13 @@ class GSPController {
 	 */
 	public function checkAndAnnounceIfShowStarted($gspResponse) {
 		$data = @json_decode($gspResponse->body);
-		$allInformationPresent = $data !== false
-			&& isset($data->live)
-			&& is_integer($data->live)
-			&& isset($data->name)
-			&& isset($data->info);
-		if (!$allInformationPresent) {
+		if (
+			!$this->isAllShowInformationPresent($data)
+			|| !$this->hasShowInformationChanged($data)
+		) {
 			return;
 		}
-		if ($data->live === $this->showRunning) {
-			return;
-		}
+
 		$this->showRunning = $data->live;
 		$this->showName = $data->name;
 		$this->showLocation = $data->info;
@@ -145,6 +184,16 @@ class GSPController {
 			$this->getNotificationMessage(),
 			$specialDelimiter
 		);
+		$this->announceShow($msg);
+	}
+
+	/**
+	 * Announce a show on all configured channels
+	 *
+	 * @param string $msg The message to announce
+	 * @return void
+	 */
+	protected function announceShow($msg) {
 		if ($this->settingManager->get('gsp_channels') === "priv") {
 			$this->chatBot->sendPrivate($msg, true);
 		} elseif ($this->settingManager->get('gsp_channels') === "guild") {
@@ -289,7 +338,7 @@ class GSPController {
 	/**
 	 * Create a message with information about what's currently playing on GSP
 	 *
-	 * @param string $gspResponse The JSON-string with  stream information
+	 * @param string $gspResponse The JSON-string with stream information
 	 * @return string Information what is currently being played on GSP
 	 */
 	public function renderPlaylist($gspResponse) {
