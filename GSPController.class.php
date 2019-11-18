@@ -164,10 +164,15 @@ class GSPController {
 	 */
 	public function checkAndAnnounceIfShowStarted($gspResponse) {
 		$data = @json_decode($gspResponse->body);
-		if (
-			!$this->isAllShowInformationPresent($data)
-			|| !$this->hasShowInformationChanged($data)
-		) {
+		if ( !$this->isAllShowInformationPresent($data) ) {
+			return;
+		}
+		if ($data->live && strlen($data->name) && strlen($data->info)) {
+			$data->live = 1;
+		} else {
+			$data->live = 0;
+		}
+		if (!$this->hasShowInformationChanged($data)) {
 			return;
 		}
 
