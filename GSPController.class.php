@@ -184,7 +184,7 @@ class GSPController {
 		}
 		$specialDelimiter = "<yellow>---------------------<end>";
 		$msg = sprintf(
-			"%s\n%s\n%s",
+			"\n%s\n%s\n%s",
 			$specialDelimiter,
 			$this->getNotificationMessage(),
 			$specialDelimiter
