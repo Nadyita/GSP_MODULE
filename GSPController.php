@@ -1,13 +1,12 @@
 <?php
 
-namespace Budabot\User\Modules;
+namespace Budabot\User\Modules\GSP_MODULE;
 
 use DateTime;
 use DateTimeZone;
 
 /**
- * Authors:
- *	- Nadyita (RK5)
+ * @author Nadyita (RK5) <nadyita@hodorraid.org>
  *
  * @Instance
  *
@@ -16,6 +15,7 @@ use DateTimeZone;
  *		command     = 'radio',
  *		accessLevel = 'all',
  *		description = 'List what is currently playing on GridStream',
+ *		alias       = 'gsp',
  *		help        = 'radio.txt'
  *	)
  */
@@ -109,7 +109,7 @@ class GSPController {
 		$response = $this->http
 				->get(static::GSP_URL)
 				->withTimeout(10)
-				->withCallback(function($response) use ($sendto) {
+				->withCallback(function($response) {
 					$this->checkAndAnnounceIfShowStarted($response);
 				});
 	}
@@ -343,7 +343,7 @@ class GSPController {
 	/**
 	 * Create a message with information about what's currently playing on GSP
 	 *
-	 * @param string $gspResponse The JSON-string with stream information
+	 * @param \StdClass $gspResponse The HTTP response with a JSON-string with stream information
 	 * @return string Information what is currently being played on GSP
 	 */
 	public function renderPlaylist($gspResponse) {
